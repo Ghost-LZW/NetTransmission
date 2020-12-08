@@ -38,6 +38,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class DownloadManager {
     private static final String TAG = "DownloadManager";
@@ -49,17 +50,27 @@ public class DownloadManager {
     private volatile JSONObject address;
     private volatile ExecutorService exec;
     private volatile Map<String, Long> runTaskInfo;
+    private volatile boolean finish;
     private static int MxThread = 16;
     private int ThreadNum = 0;
 
     private static class CallHandle extends Handler {
+        int cnt = 0;
         @Override
-        public void handleMessage(@NonNull Message msg) {
+        public synchronized void handleMessage(@NonNull Message msg) {
             super.handleMessage(msg);
             if (msg.what == 0) {
                 Pair<Activity, Intent> res = (Pair<Activity, Intent>) msg.obj;
                 assert res.first != null;
+                Log.i(TAG, "handleMessage: cnt = " + cnt);
+                ++cnt;
                 res.first.onActivityReenter(TransmissionConstant.downloadTaskFinish, res.second);
+            } else if (msg.what == 1) {
+                Pair<Activity, Intent> res = (Pair<Activity, Intent>) msg.obj;
+                assert res.first != null;
+                Log.i(TAG, "handleMessage: cnt = " + cnt);
+                ++cnt;
+                res.first.onActivityReenter(TransmissionConstant.downloadPartFinish, res.second);
             }
         }
     }
@@ -71,6 +82,7 @@ public class DownloadManager {
 
     public DownloadManager(String filename) throws DownLoadException, IOException, JSONException {
         Log.i(TAG, "DownloadManager: " + filename);
+        finish = false;
         newFile = new File(FileManager.getDownloadDir() + File.separator + filename);
         file = new File(FileManager.getDownloadDir() + File.separator + filename + ".ltf");
         infoFile = new File(FileManager.getDownloadDir() + File.separator + filename + ".json");
@@ -116,6 +128,7 @@ public class DownloadManager {
                 if (size == 0) return -1;
                 try {
                     long cnt = (size + FileConstant.PART - 1) / FileConstant.PART;
+                    Log.i(TAG, "findTask: cnt = " + cnt + ' ' + MaxTask);
                     long stay = cnt / 2;
                     if (stay == 0) return -1;
                     long newTask = Integer.parseInt(MaxTask) + stay * FileConstant.PART + tasks.getLong(MaxTask) - size;
@@ -144,8 +157,13 @@ public class DownloadManager {
                         saveInfo();
                     } catch (IOException | JSONException e) {
                         e.printStackTrace();
+                        Log.e(TAG, "findTask: not save");
                     }
                 }
+                break;
+            case 2 :
+                runTaskInfo.remove(Long.toString(oldTask));
+                break;
             default:
 
         }
@@ -153,29 +171,49 @@ public class DownloadManager {
     }
 
     synchronized private void newThread(Activity context, String host, int port) {
+        newThread(context, host, port, null);
+    }
+
+    synchronized private void newThread(Activity context, String host, int port, Long AimTask) {
         if (ThreadNum >= MxThread) return ;
         for (int i = 0; i < (ThreadNum + 1 < MxThread ? 2 : 1); ++i) {
             ++ThreadNum;
-            exec.execute(() -> {
-                try {
-                    download(context, host, port, findTask(0, -1, -1, -1));
-                } catch (IOException | JSONException e) {
-                    e.printStackTrace();
-                }
-                --ThreadNum;
-            });
+            try {
+                exec.execute(() -> {
+                    long task = 0;
+                    try {
+                        if (AimTask == null)
+                            download(context, host, port, task = findTask(0, -1, -1, -1));
+                        else download(context, host, port, task = AimTask);
+                    } catch (IOException | JSONException e) {
+                        e.printStackTrace();
+                    }
+                    --ThreadNum;
+                    Log.i(TAG, "newThread: task = " + task);
+                    try {
+                        findTask(2, task, -1, -1);
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+                    if (ThreadNum < MxThread / 2 && !finish) newThread(context, host, port);
+                });
+            } catch (Exception e) {
+                e.printStackTrace();
+                return;
+            }
         }
     }
 
     private void download(Activity context, String host, int port, long task) throws IOException, JSONException {
         if (task == -1) {
-            Log.i(TAG, "download: " + tasks.length());
-            synchronized (this) {
-                if (tasks.length() == 0 && file.exists()) {
+            Log.i(TAG, "download: " + tasks.length() + " task = " + task);
+            if (tasks.length() == 0 && file.exists() && !finish) {
+                synchronized (this) {
+                    Log.i(TAG, "download: info = " + tasks.toString(4));
                     if (file.renameTo(newFile)) {
                         Log.i(TAG, "download: rename success");
                         Message msg = new Message();
-
+                        finish = true;
                         msg.what = 0;
 
                         Intent intent = new Intent();
@@ -199,7 +237,7 @@ public class DownloadManager {
         ByteArrayOutputStream bufStream = new ByteArrayOutputStream();
         
         bufStream.write("LP2P 0.1\n2".getBytes(StandardCharsets.UTF_8));
-        bufStream.write((byte) info.getString("FileName").length());
+        bufStream.write((byte) info.getString("FileName").getBytes(StandardCharsets.UTF_8).length);
         bufStream.write(info.getString("FileName").getBytes(StandardCharsets.UTF_8));
         bufStream.write(ByteBuffer.allocate(8).order(ByteOrder.BIG_ENDIAN).putLong(info.getLong("FileSize")).array(),
                        2 ,6);
@@ -222,7 +260,8 @@ public class DownloadManager {
         int pos = 0;
         int resourceSize = Integer.MAX_VALUE;
         Log.i(TAG, "download: available = " + inputStream.available());
-        while (res.size() < resourceSize && (len = inputStream.read(bytes)) != -1) {
+        remote.setSoTimeout(1000);
+        while (res.size() < resourceSize && (len = inputStream.read(bytes)) != -1 && (exec != null && !exec.isShutdown())) {
             if (len > 0) {
                 res.addAll(Arrays.asList(ArrayUtils.unPrimitive(Arrays.copyOfRange(bytes, 0, len))));
                 size += len;
@@ -270,6 +309,9 @@ public class DownloadManager {
         pos += 3;
         Log.i(TAG, "download: partSize = " + partSize);
         synchronized (this) {
+            if (!tasks.has(Long.toString(task))) {
+                return;
+            }
             RandomAccessFile randomAccessFile = new RandomAccessFile(file, "rw");
             randomAccessFile.seek(task);
             Log.i(TAG, "download: task = " + task + " size = " + partSize);
@@ -298,9 +340,25 @@ public class DownloadManager {
             }
         }
 
-        if (runTaskInfo.get(String.valueOf(task + partSize)) != null)
-            download(context, host, port, task + partSize);
-        newThread(context, host, port);
+        {
+            Message msg = new Message();
+
+            msg.what = 1;
+
+            Intent intent = new Intent();
+            intent.putExtra("FileName", info.getString("FileName"));
+            intent.putExtra("FilePath", FileManager.getDownloadDir() + File.separator
+                    + info.getString("FileName"));
+            intent.putExtra("solvedSize", partSize);
+
+            msg.obj = new Pair<>(context, intent);
+
+            msgHandle.sendMessage(msg);
+        }
+
+        if (runTaskInfo.get(String.valueOf(task + partSize)) != null) {
+            newThread(context, host, port, task + partSize);
+        }
     }
 
     public void download(Activity context) {
@@ -319,7 +377,16 @@ public class DownloadManager {
     }
 
     public void shutdown() {
-        if (exec != null)
-        exec.shutdownNow();
+        if (exec != null) {
+            exec.shutdown();
+            try {
+                if (!exec.awaitTermination(5, TimeUnit.SECONDS))
+                    exec.shutdownNow();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        ThreadNum = 0;
+        runTaskInfo.clear();
     }
 }

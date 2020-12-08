@@ -6,6 +6,7 @@ import org.json.JSONObject;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Iterator;
 
 public class TaskItem {
     private String FileName;
@@ -21,6 +22,21 @@ public class TaskItem {
     public boolean isFinish() throws IOException, JSONException {
         JSONObject info = new JSONObject(FileUtils.readFileToString(infoFile));
         return info.getJSONObject("tasks").length() == 0;
+    }
+
+    public long getFileSize() throws IOException, JSONException {
+        JSONObject info = new JSONObject(FileUtils.readFileToString(infoFile));
+        return info.getLong("FileSize");
+    }
+
+    public long getUnSolvedSize() throws JSONException, IOException {
+        JSONObject info = new JSONObject(FileUtils.readFileToString(infoFile));
+        long size = 0;
+        for (Iterator<String> it = info.getJSONObject("tasks").keys(); it.hasNext(); ) {
+            String key = it.next();
+            size += info.getJSONObject("tasks").getLong(key);
+        }
+        return size;
     }
 
     public String getFilePath() {

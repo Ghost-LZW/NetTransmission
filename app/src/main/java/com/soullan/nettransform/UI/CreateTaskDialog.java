@@ -42,6 +42,7 @@ public class CreateTaskDialog extends Dialog {
         Button get_code = findViewById(R.id.get_code);
         get_code.setOnClickListener(v -> {
             context.onActivityReenter(TransmissionConstant.tryToGetCode, null);
+            cancel();
         });
     }
 }

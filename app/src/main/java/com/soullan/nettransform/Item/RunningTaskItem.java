@@ -1,5 +1,7 @@
 package com.soullan.nettransform.Item;
 
+import android.app.Activity;
+
 import com.soullan.nettransform.Manager.DownloadManager;
 import com.soullan.nettransform.exception.DownLoadException;
 
@@ -12,27 +14,34 @@ public class RunningTaskItem {
     private String FilePath;
     private String FileName;
     private boolean Statue;
-    public DownloadManager downloadManager;
-    public RunningTaskItem(String FileName, String FilePath) {
+    private DownloadManager downloadManager;
+    private long FileSize;
+    private long proSize;
+    public RunningTaskItem(String FileName, String FilePath, long fileSize, long Unsolved) {
         this.FilePath = FilePath;
         this.FileName = FileName;
         Statue = false;
-        try {
-            downloadManager = new DownloadManager(FileName);
-        } catch (DownLoadException | IOException | JSONException e) {
-            e.printStackTrace();
-        }
+        downloadManager = null;
+        FileSize = fileSize;
+        proSize = fileSize - Unsolved;
     }
 
     public RunningTaskItem(String FileName, String FilePath, boolean statue) {
         this.FilePath = FilePath;
         this.FileName = FileName;
         Statue = statue;
-        try {
-            downloadManager = new DownloadManager(FileName);
-        } catch (DownLoadException | IOException | JSONException e) {
-            e.printStackTrace();
-        }
+        downloadManager = null;
+        FileSize = 0;
+        proSize = 0;
+    }
+
+    public void download(Activity context) throws JSONException, DownLoadException, IOException {
+        if (downloadManager == null) downloadManager = new DownloadManager(getFileName());
+        downloadManager.download(context);
+    }
+
+    public void shutdown() {
+        if (downloadManager != null) downloadManager.shutdown();
     }
 
     @Override
@@ -47,6 +56,23 @@ public class RunningTaskItem {
     @Override
     public int hashCode() {
         return Objects.hash(FilePath, FileName, Statue);
+    }
+
+    public void setProSize(long proSize) {
+        this.proSize = proSize;
+    }
+
+    public void addProSize(int size) {
+        proSize += size;
+        if (proSize >= FileSize) proSize = FileSize;
+    }
+
+    public long getFileSize() {
+        return FileSize;
+    }
+
+    public long getProSize() {
+        return proSize;
     }
 
     public String getFileName() {

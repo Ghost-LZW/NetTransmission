@@ -1,6 +1,7 @@
 package com.soullan.nettransform;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
@@ -13,6 +14,7 @@ import android.util.Log;
 import android.util.Pair;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.ListView;
@@ -32,7 +34,8 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.navigation.NavigationView;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.common.io.ByteStreams;
-import com.journeyapps.barcodescanner.CaptureActivity;
+import com.google.zxing.integration.android.IntentIntegrator;
+import com.google.zxing.integration.android.IntentResult;
 import com.soullan.nettransform.Item.RunningTaskItem;
 import com.soullan.nettransform.Item.SolvedTaskItem;
 import com.soullan.nettransform.Item.TaskItem;
@@ -64,11 +67,11 @@ import java.util.Objects;
 import static android.os.Environment.DIRECTORY_DOWNLOADS;
 import static androidx.core.content.PermissionChecker.PERMISSION_GRANTED;
 import static com.soullan.nettransform.constant.RequestConstant.GetFileRequest;
-import static com.soullan.nettransform.constant.RequestConstant.REQ_QR_CODE;
 import static com.soullan.nettransform.constant.RequestConstant.RequestResource;
 import static com.soullan.nettransform.constant.RequestConstant.ServersRequest;
 import static com.soullan.nettransform.constant.TransmissionConstant.createServerResultCode;
 import static com.soullan.nettransform.constant.TransmissionConstant.createTaskResultCode;
+import static com.soullan.nettransform.constant.TransmissionConstant.downloadPartFinish;
 import static com.soullan.nettransform.constant.TransmissionConstant.downloadTaskFinish;
 import static com.soullan.nettransform.constant.TransmissionConstant.generateServerCode;
 import static com.soullan.nettransform.constant.TransmissionConstant.tryToGetCode;
@@ -99,6 +102,9 @@ public class TransmissionActivity extends AppCompatActivity {
             } else if (msg.what == 1) {
                 Pair<String, String> res = (Pair<String, String>) msg.obj;
                 context.solvedItem(res.first, res.second);
+            } else if (msg.what == 2) {
+                Pair<String, String> res = (Pair<String, String>) msg.obj;
+                context.solvedPart(res.first, res.second, msg.arg1);
             }
         }
     }
@@ -193,7 +199,7 @@ public class TransmissionActivity extends AppCompatActivity {
                 TaskItem task = new TaskItem(name, path);
                 try {
                     if (!task.isFinish())
-                        data.add(new RunningTaskItem(name, path));
+                        data.add(new RunningTaskItem(name, path, task.getFileSize(), task.getUnSolvedSize()));
                     else solvedData.add(new SolvedTaskItem(name, path));
                 } catch (IOException | JSONException e) {
                     e.printStackTrace();
@@ -215,14 +221,19 @@ public class TransmissionActivity extends AppCompatActivity {
                 listView.setOnItemClickListener((parent, view, position, id) -> {
                     RunningTaskItem item = adapter.getItem(position);
                     if (item == null) return;
-                    ImageView statue = view.findViewById(R.id.statue);
+                    ImageView statue = ((RunningTaskAdapter.ViewHolder) view.getTag()).statue;
                     if (item.getStatue()) {
                         item.setStatue(false);
-                        item.downloadManager.shutdown();
+                        item.shutdown();
                         statue.setImageResource(R.drawable.ic_run);
                     } else {
+                        Log.e(TAG, "setAdapter: begin ");
                         item.setStatue(true);
-                        item.downloadManager.download(this);
+                        try {
+                            item.download(this);
+                        } catch (JSONException | DownLoadException | IOException e) {
+                            e.printStackTrace();
+                        }
                         statue.setImageResource(R.drawable.ic_stop);
                     }
                 });
@@ -275,9 +286,9 @@ public class TransmissionActivity extends AppCompatActivity {
                         grantResults[1] == PERMISSION_GRANTED) new Thread(()-> {
                     try {
                         TaskItem item = TransmissionManager.ReceiveFiles(this, tmpHost, tmpPort);
-                        RunningTaskItem runningTaskItem = new RunningTaskItem(item.getFileName(), item.getFilePath(), false);
+                        RunningTaskItem runningTaskItem = new RunningTaskItem(item.getFileName(), item.getFilePath(), item.getFileSize(), item.getUnSolvedSize());
                         Log.i(TAG, "onRequestPermissionsResult: " + runningTaskItem.getFileName() + ' ' +
-                                                                          runningTaskItem.getFilePath());
+                                                                          runningTaskItem.getFilePath() + ' ' + runningTaskItem.getFileSize());
                         Message msg = new Message();
                         msg.what = 0;
                         msg.obj = runningTaskItem;
@@ -285,7 +296,6 @@ public class TransmissionActivity extends AppCompatActivity {
                     } catch (IOException e) {
                         e.printStackTrace();
                         Log.e(TAG, "onRequestPermissionsResult: host error");
-                        Toast.makeText(this, "please confirm your host and port", Toast.LENGTH_SHORT).show();
                     } catch (DownLoadException | JSONException e) {
                         e.printStackTrace();
                     }
@@ -321,8 +331,7 @@ public class TransmissionActivity extends AppCompatActivity {
                 }
                 break;
             case PermissionConstant.RequestGetCodePermission :
-                Intent intent = new Intent(this, CaptureActivity.class);
-                startActivityForResult(intent, REQ_QR_CODE);
+                new IntentIntegrator(this).initiateScan();
                 break;
             default:
         }
@@ -339,18 +348,23 @@ public class TransmissionActivity extends AppCompatActivity {
             }
             ServerUri = data.getData();
             serverTaskDialogHandle.setServerUri(ServerUri, this);
-        } else if (requestCode == REQ_QR_CODE && resultCode == RESULT_OK) {
-            assert data != null;
-            Bundle bundle = data.getExtras();
-            assert bundle != null;
-            String scanResult = bundle.getString("qr_scan_result");
-            //将扫描出的信息显示出来
-            assert scanResult != null;
-            String[] res = scanResult.split(":");
-            Intent intent = new Intent();
-            intent.putExtra("host", res[0]);
-            intent.putExtra("port", Integer.parseInt(res[1]));
-            this.onActivityReenter(createTaskResultCode, intent);
+        } else {
+            IntentResult result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
+            if (result != null) {
+                if (result.getContents() == null) {
+                    Toast.makeText(this, "Cancelled", Toast.LENGTH_LONG).show();
+                } else {
+                    String scanResult = result.getContents();
+                    Log.i(TAG, "onActivityResult: " + scanResult);
+                    String[] res = scanResult.split(":");
+                    Intent intent = new Intent();
+                    intent.putExtra("host", res[0]);
+                    intent.putExtra("port", Integer.parseInt(res[1]));
+                    this.onActivityReenter(createTaskResultCode, intent);
+                }
+            } else {
+                super.onActivityResult(requestCode, resultCode, data);
+            }
         }
     }
 
@@ -382,6 +396,7 @@ public class TransmissionActivity extends AppCompatActivity {
                         .show();
 
                 permissionManager.askForPermissions(RequestResource,
+                        Manifest.permission.INTERNET,
                         Manifest.permission.WRITE_EXTERNAL_STORAGE,
                         Manifest.permission.READ_EXTERNAL_STORAGE);
                 break;
@@ -436,12 +451,15 @@ public class TransmissionActivity extends AppCompatActivity {
 
                 break;
             case downloadTaskFinish :
-                String Name = data.getStringExtra("FileName");
-                String Path = data.getStringExtra("FilePath");
-                Message msg = new Message();
-                msg.what = 1;
-                msg.obj = new Pair<>(Name, Path);
-                mainThreadHandle.sendMessage(msg);
+                {
+                    String Name = data.getStringExtra("FileName");
+                    String Path = data.getStringExtra("FilePath");
+                    Message msg = new Message();
+                    msg.what = 1;
+                    msg.obj = new Pair<>(Name, Path);
+                    mainThreadHandle.sendMessage(msg);
+                }
+
                 break;
             case generateServerCode :
                 Bitmap bitmap = (Bitmap) Objects.requireNonNull(data.getExtras()).get("code");
@@ -449,6 +467,20 @@ public class TransmissionActivity extends AppCompatActivity {
                 break;
             case tryToGetCode :
                 startQrCode();
+                break;
+            case downloadPartFinish :
+                {
+                    String Name = data.getStringExtra("FileName");
+                    String Path = data.getStringExtra("FilePath");
+                    int size = data.getIntExtra("solvedSize", -1);
+                    if (size == -1) return;
+                    Message msg = new Message();
+                    msg.what = 2;
+                    msg.obj = new Pair<>(Name, Path);
+                    msg.arg1 = size;
+                    mainThreadHandle.sendMessage(msg);
+                }
+                break;
             default:
 
         }
@@ -466,6 +498,29 @@ public class TransmissionActivity extends AppCompatActivity {
         solvedAdapter.add(new SolvedTaskItem(Name, Path));
         solvedAdapter.notifyDataSetChanged();
         adapter.notifyDataSetChanged();
+    }
+
+    private void solvedPart(String Name, String Path, int partSize) {
+        Log.i(TAG, "solvedPart: " + Name + ' ' + Path);
+        int position = adapter.getPosition(new RunningTaskItem(Name, Path, true));
+        if (position == -1) return;
+        Objects.requireNonNull(adapter.getItem(position)).addProSize(partSize);
+        adapter.notifyDataSetChanged();
+        updateView(position);
+    }
+
+    @SuppressLint("SetTextI18n")
+    public void updateView(int itemIndex) {
+        int visiblePosition = listView.getFirstVisiblePosition();
+        if (itemIndex - visiblePosition >= 0) {
+
+            View view = listView.getChildAt(itemIndex - visiblePosition);
+
+            RunningTaskAdapter.ViewHolder holder = (RunningTaskAdapter.ViewHolder) view.getTag();
+            RunningTaskItem item = adapter.getItem(itemIndex);
+            holder.progressBar.setProgress((int) Objects.requireNonNull(item).getProSize());
+            holder.progress.setText(item.getProSize() + "/" + item.getFileSize());
+        }
     }
 
     @Override

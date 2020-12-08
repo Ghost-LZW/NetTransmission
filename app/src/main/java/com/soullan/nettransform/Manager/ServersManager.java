@@ -97,7 +97,7 @@ public class ServersManager {
             case '2' :
                 int nameSize = ByteUtils.toUnsigned(byteRequest[++pos]);
                 ++pos;
-                String fileName = new String(Arrays.copyOfRange(byteRequest, pos, pos + nameSize));
+                String fileName = new String(Arrays.copyOfRange(byteRequest, pos, pos + nameSize), StandardCharsets.UTF_8);
                 pos += nameSize;
                 long fileSize = ByteBuffer.wrap(ArrayUtils.addArray(new byte[]{0, 0},
                                                                     Arrays.copyOfRange(byteRequest, pos, pos + 6)))
@@ -109,8 +109,11 @@ public class ServersManager {
                 ByteArrayOutputStream data = new ByteArrayOutputStream();
                 if (!checkTask(aimPos)) {
                     data.write("LP2P 0.1\n4".getBytes(StandardCharsets.UTF_8));
-                    client.getOutputStream().write(data.toByteArray());
-                    return;
+                    byte[] dataSize = Arrays.copyOfRange(ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN)
+                            .putInt(data.size() + 3).array(), 1, 4);
+
+                    client.getOutputStream().write(ArrayUtils.addArray(dataSize, data.toByteArray()));
+                    break;
                 }
                 data.write("LP2P 0.1\n3".getBytes(StandardCharsets.UTF_8));
                 byte[] nameF = file.getName().getBytes(StandardCharsets.UTF_8);
@@ -121,10 +124,11 @@ public class ServersManager {
                 RandomAccessFile randomAccessFile = new RandomAccessFile(file, "r");
                 byte[] filePart = new byte[FileConstant.PART];
                 randomAccessFile.seek(aimPos);
+                Log.i(TAG, "serverClient: random " + file.getPath() + " " + file.canRead() + " " + file.length());
                 int size = randomAccessFile.read(filePart);
                 randomAccessFile.close();
                 data.write(ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(size).array(), 1, 3);
-                Log.i(TAG, "serverClient: " + size + ' ' + filePart.length + " " + aimPos);
+                Log.i(TAG, "serverClient: " + size + ' ' + filePart.length + " " + aimPos + " " + fileSize + " " + fileName);
                 data.write(filePart, 0, size);
 
                 if (rand.nextInt(10) == 4) {
@@ -162,6 +166,7 @@ public class ServersManager {
                                                      .putInt(data.size() + 3).array(), 1, 4);
 
                 client.getOutputStream().write(ArrayUtils.addArray(dataSize, data.toByteArray()));
+                break;
         }
     }
 
@@ -183,6 +188,7 @@ public class ServersManager {
     public static void startServers() throws IOException {
         Socket client = null;
         file = new File(fileName);
+        Log.i(TAG, "startServers: " + fileName);
         exec = Executors.newCachedThreadPool();
         Log.i(TAG, "startServers: start server " + server.getLocalPort());
         while ((client = server.accept()) != null && !exec.isShutdown()) {
