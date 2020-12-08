@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <group
+        android:id="@+id/tmNavF"
+        android:checkableBehavior="single">
+        <item
+            android:id="@+id/tmNavFOne"
+            android:title="@string/one" />
+
+        <item
+            android:id="@+id/tmNavFSec"
+            android:title="@string/second" />
+    </group>
+
+    <group
+        android:id="@+id/tmNavS"
+        android:checkableBehavior="single">
+        <item
+            android:id="@+id/tmNavSOne"
+            android:title="@string/one" />
+        <item
+            android:id="@+id/tmNavSSec"
+            android:title="@string/second" />
+    </group>
+
+    <item
+        android:id="@+id/NavSub"
+        android:title="@string/sub">
+        <menu>
+            <item
+                android:id="@+id/NavSubOne"
+                android:title="@string/dev_activity"/>
+            <item
+                android:id="@+id/NavSubSec"
+                android:title="@string/second" />
+        </menu>
+    </item>
+</menu>

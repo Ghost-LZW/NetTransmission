@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_margin="20dp"
+    android:layout_gravity="center"
+    android:background="@drawable/shape_corner"
+    android:gravity="start"
+    android:orientation="vertical">
+
+    <androidx.appcompat.widget.Toolbar
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/taskToolBar"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
+        android:background="@drawable/shape_top_corner"
+        app:title="添加任务"
+        android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
+        />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="start"
+        android:text="@string/ip"
+        android:textSize="20sp"
+        android:textColor="@android:color/black"
+        android:id="@+id/ip_address"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/taskToolBar"
+        android:layout_marginStart="20dp"
+        android:layout_marginTop="10dp"/>
+
+    <EditText
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/ip_address"
+        android:textSize="18sp"
+        android:theme="@style/TaskEditText"
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="20dp"
+        android:inputType="textUri"
+        android:hint="@string/input_ip"
+        android:importantForAutofill="no"
+        android:id="@+id/ip" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="start"
+        android:textSize="20sp"
+        android:text="@string/port"
+        android:textColor="@android:color/black"
+        android:id="@+id/ip_port"
+        app:layout_constraintLeft_toLeftOf="@id/ip"
+        app:layout_constraintTop_toBottomOf="@id/ip"
+        android:layout_marginStart="20dp"/>
+
+    <EditText
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="18sp"
+        android:theme="@style/TaskEditText"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/ip_port"
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="20dp"
+        android:inputType="textUri"
+        android:hint="@string/input_port"
+        android:autofillHints="true"
+        android:id="@+id/port" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/get_code"
+        android:id="@+id/get_code"
+        style="@style/Widget.AppCompat.Button.Borderless"
+        app:layout_constraintTop_toBottomOf="@id/port"
+        app:layout_constraintLeft_toLeftOf="parent"
+        />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/yes"
+        android:id="@+id/yes"
+        app:layout_constraintTop_toBottomOf="@id/port"
+        style="@style/Widget.AppCompat.Button.Borderless"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintHorizontal_bias="0.7"
+        />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/cancel"
+        android:id="@+id/cancel"
+        style="@style/Widget.AppCompat.Button.Borderless"
+        app:layout_constraintTop_toBottomOf="@id/port"
+        app:layout_constraintLeft_toRightOf="@id/yes"
+        app:layout_constraintRight_toRightOf="parent"
+        />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

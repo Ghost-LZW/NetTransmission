@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.navigation.NavigationView
+    android:id="@+id/nav_view"
+    android:layout_height="match_parent"
+    android:layout_width="wrap_content"
+    android:layout_gravity="start"
+    android:fitsSystemWindows="true"
+    app:headerLayout="@layout/transmission_nav_header"
+    app:menu="@menu/transmission_nav_menu"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_gravity="bottom"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/footer_item_setting"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:adjustViewBounds="true"
+            android:background="@android:color/transparent"
+            android:drawablePadding="1dp"
+            android:gravity="center"
+            android:paddingStart="5dp"
+            android:paddingEnd="4dp"
+            android:text="@string/setting"
+            android:textAlignment="inherit"
+            style="@style/Widget.AppCompat.Button.Borderless"/>
+
+        <Button
+            android:id="@+id/footer_item_out"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@android:color/transparent"
+            android:drawablePadding="1dp"
+            android:gravity="center"
+            android:paddingStart="5dp"
+            android:paddingEnd="4dp"
+            android:text="@string/exit"
+            android:textAlignment="center"
+            style="@style/Widget.AppCompat.Button.Borderless"/>
+    </LinearLayout>
+
+
+</com.google.android.material.navigation.NavigationView>
