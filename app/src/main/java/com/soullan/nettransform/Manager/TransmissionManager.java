@@ -6,7 +6,6 @@ import android.util.Log;
 import com.soullan.nettransform.Item.TaskItem;
 import com.soullan.nettransform.Utils.ArrayUtils;
 import com.soullan.nettransform.Utils.ByteUtils;
-import com.soullan.nettransform.exception.DownLoadException;
 import com.soullan.nettransform.exception.GetInfoException;
 
 import org.json.JSONException;
@@ -25,7 +24,7 @@ import java.util.Arrays;
 public class TransmissionManager {
     private static final String TAG = "TransmissionManager";
 
-    public static TaskItem ReceiveFiles(Context context, String address, Integer port) throws IOException, JSONException, DownLoadException {
+    public static TaskItem ReceiveFiles(Context context, String address, Integer port) throws IOException, JSONException {
         Socket remote = new Socket(address, port);
         remote.setTcpNoDelay(true);
         OutputStream outputStream = remote.getOutputStream();
@@ -41,6 +40,7 @@ public class TransmissionManager {
         ArrayList<Byte> res = new ArrayList<>();
         int resourceSize = Integer.MAX_VALUE;
         int pos = 0;
+        remote.setSoTimeout(1000);
         while (res.size() < resourceSize && (len = inputStream.read(bytes)) != -1) {
             Log.i(TAG, "ReceiveFiles: " + res.size() + ' ' + len);
             res.addAll(Arrays.asList(ArrayUtils.unPrimitive(Arrays.copyOfRange(bytes, 0, len))));

@@ -52,7 +52,8 @@ public class CircleProgressBar extends View {
         canvas.drawArc(oval, -90, ((float) progress / maxProgress) * 360, false, paint); // 绘制进度圆弧，这里是蓝色
 
         paint.setStrokeWidth(1);
-        String text = (progress * 100 / maxProgress) + "%";
+
+        String text = maxProgress == 0 ? "0%" : (progress * 100 / maxProgress) + "%";
         int textHeight = height / 4;
         paint.setTextSize(textHeight);
         int textWidth = (int) paint.measureText(text, 0, text.length());

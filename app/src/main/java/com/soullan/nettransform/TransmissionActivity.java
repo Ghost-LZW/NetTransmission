@@ -78,6 +78,7 @@ import static com.soullan.nettransform.constant.TransmissionConstant.tryToGetCod
 
 public class TransmissionActivity extends AppCompatActivity {
     private static final String TAG = "TestActivity";
+    @SuppressLint("StaticFieldLeak")
     private static PermissionManager permissionManager;
     private static ServerTaskDialog serverTaskDialogHandle;
     private final static int FlushListRequest = 111;
@@ -89,6 +90,7 @@ public class TransmissionActivity extends AppCompatActivity {
         private TransmissionActivity context;
 
         public MainThreadHandle(TransmissionActivity context) {
+            super();
             this.context = context;
         }
 
@@ -127,36 +129,26 @@ public class TransmissionActivity extends AppCompatActivity {
         listView = findViewById(R.id.show_content);
 
         FloatingActionButton fab = findViewById(R.id.create_task);
-        fab.setOnClickListener(view -> {
-            new CreateTaskDialog(TransmissionActivity.this, R.layout.create_task_dialog_layout).show();
-        });
+        fab.setOnClickListener(view -> new CreateTaskDialog(TransmissionActivity.this, R.layout.create_task_dialog_layout).show());
 
         FloatingActionButton ser = findViewById(R.id.create_server);
-        ser.setOnClickListener(v -> {
-            permissionManager.askForPermissions(ServersRequest,
-                                                Manifest.permission.INTERNET,
-                                                Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                                                Manifest.permission.READ_EXTERNAL_STORAGE);
-        });
+        ser.setOnClickListener(v -> permissionManager.askForPermissions(ServersRequest,
+                                            Manifest.permission.INTERNET,
+                                            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                                            Manifest.permission.READ_EXTERNAL_STORAGE));
 
         permissionManager.askForPermissions(FlushListRequest,
                                             Manifest.permission.WRITE_EXTERNAL_STORAGE,
                                             Manifest.permission.READ_EXTERNAL_STORAGE);
 
         Button running_task = findViewById(R.id.running_tasks);
-        running_task.setOnClickListener(v -> {
-            setAdapter(1);
-        });
+        running_task.setOnClickListener(v -> setAdapter(1));
 
         Button over_task = findViewById(R.id.over_tasks);
-        over_task.setOnClickListener(v -> {
-            setAdapter(2);
-        });
+        over_task.setOnClickListener(v -> setAdapter(2));
 
         Button exit = findViewById(R.id.footer_item_out);
-        exit.setOnClickListener(v -> {
-            finish();
-        });
+        exit.setOnClickListener(v -> finish());
 
         DrawerLayout drawer = findViewById(R.id.drawer_layout);
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
@@ -167,13 +159,10 @@ public class TransmissionActivity extends AppCompatActivity {
         NavigationView navigationView = findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(item -> {
             Toast.makeText(getApplicationContext(),"Hello",Toast.LENGTH_SHORT).show();
-            switch (item.getItemId()) {
-                case R.id.NavSubOne :
-                    Toast.makeText(this, "goto dev", Toast.LENGTH_SHORT).show();
-                    Intent testUI = new Intent(this, MainActivity.class);
-                    startActivity(testUI);
-                    break;
-                default:
+            if (item.getItemId() == R.id.NavSubOne) {
+                Toast.makeText(this, "goto dev", Toast.LENGTH_SHORT).show();
+                Intent testUI = new Intent(this, MainActivity.class);
+                startActivity(testUI);
             }
 
             drawer.close();
@@ -296,7 +285,7 @@ public class TransmissionActivity extends AppCompatActivity {
                     } catch (IOException e) {
                         e.printStackTrace();
                         Log.e(TAG, "onRequestPermissionsResult: host error");
-                    } catch (DownLoadException | JSONException e) {
+                    } catch (JSONException e) {
                         e.printStackTrace();
                     }
                 }).start();
@@ -417,21 +406,23 @@ public class TransmissionActivity extends AppCompatActivity {
                     e.printStackTrace();
                 }
 
-                Log.i(TAG, "onRequestPermissionsResult: " + fileName);
-                File file = new File(FileManager.getDownloadDir() + File.separator + fileName);
-                try {
-                    FileOutputStream out = new FileOutputStream(file);
-                    assert ServerInput != null;
-                    ByteStreams.copy(ServerInput, out);
-                    out.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                } finally {
+                Log.i(TAG, "onRequestPermissionsResult: " + fileName + ' '   + ServerUri.getPath());
+                if (!Objects.requireNonNull(ServerUri.getPath()).endsWith((FileManager.getDownloadDir() + File.separator + fileName).substring(20))) {
+                    File file = new File(FileManager.getDownloadDir() + File.separator + fileName);
                     try {
+                        FileOutputStream out = new FileOutputStream(file);
                         assert ServerInput != null;
-                        ServerInput.close();
+                        ByteStreams.copy(ServerInput, out);
+                        out.close();
                     } catch (IOException e) {
                         e.printStackTrace();
+                    } finally {
+                        try {
+                            assert ServerInput != null;
+                            ServerInput.close();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
                     }
                 }
 
