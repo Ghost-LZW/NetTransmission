@@ -24,7 +24,6 @@ import com.soullan.nettransform.Manager.FileManager;
 import com.soullan.nettransform.Manager.PermissionManager;
 import com.soullan.nettransform.Manager.ServersManager;
 import com.soullan.nettransform.Manager.TransmissionManager;
-import com.soullan.nettransform.exception.DownLoadException;
 
 import org.json.JSONException;
 
@@ -209,7 +208,7 @@ public class MainActivity extends AppCompatActivity {
                         e.printStackTrace();
                         Log.e(TAG, "onRequestPermissionsResult: host error");
                         Toast.makeText(MainActivity.this, "please confirm your host and port", Toast.LENGTH_SHORT).show();
-                    } catch (DownLoadException | JSONException e) {
+                    } catch (JSONException e) {
                         e.printStackTrace();
                     }
                 }).start();
