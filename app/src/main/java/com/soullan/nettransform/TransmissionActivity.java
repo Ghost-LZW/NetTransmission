@@ -496,6 +496,7 @@ public class TransmissionActivity extends AppCompatActivity {
         int position = adapter.getPosition(new RunningTaskItem(Name, Path, true));
         if (position == -1) return;
         Objects.requireNonNull(adapter.getItem(position)).addProSize(partSize);
+        if (listView.getAdapter() != adapter) return;
         adapter.notifyDataSetChanged();
         updateView(position);
     }

@@ -51,7 +51,7 @@ public class DownloadManager {
     private volatile ExecutorService exec;
     private volatile Map<String, Long> runTaskInfo;
     private volatile boolean finish;
-    private static int MxThread = 16;
+    private static int MxThread = 32;
     private int ThreadNum = 0;
 
     private static class CallHandle extends Handler {
@@ -287,7 +287,7 @@ public class DownloadManager {
             Log.e(TAG, "download: url error");
             return;
         }
-        int nameSize = ((byte) res.get(++pos)) & 0xFF;
+        int nameSize = res.get(++pos) & 0xFF;
         ++pos;
         String filename = new String(Arrays.copyOfRange(byteRes, pos, pos + nameSize));
         if (!filename.equals(info.getString("FileName"))) {
